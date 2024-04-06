@@ -1,25 +1,52 @@
 // test/index.spec.ts
-import { env, createExecutionContext, waitOnExecutionContext, SELF } from "cloudflare:test";
-import { describe, it, expect } from "vitest";
-import worker from "../src/index";
+import { env, SELF, fetchMock } from 'cloudflare:test';
+import { describe, it, expect } from 'vitest';
 
-// For now, you'll need to do something like this to get a correctly-typed
-// `Request` to pass to `worker.fetch()`.
-const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
+describe('test errors', () => {
+	it('responds with 405 on GET request', async () => {
+		const response = await SELF.fetch('https://example.com', { method: 'GET' });
+		expect(response.status).equals(405);
+	});
 
-describe("Hello World worker", () => {
-  it("responds with Hello World! (unit style)", async () => {
-    const request = new IncomingRequest("http://example.com");
-    // Create an empty context to pass to `worker.fetch()`.
-    const ctx = createExecutionContext();
-    const response = await worker.fetch(request, env, ctx);
-    // Wait for all `Promise`s passed to `ctx.waitUntil()` to settle before running test assertions
-    await waitOnExecutionContext(ctx);
-    expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
-  });
+	it('responds with 403 on OPTIONS with no origin', async () => {
+		const response = await SELF.fetch('https://example.com', { method: 'OPTIONS' });
+		expect(response.status).equals(403);
+	});
 
-  it("responds with Hello World! (integration style)", async () => {
-   const response = await SELF.fetch("https://example.com");
-   expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
- });
+	it('responds with 403 on OPTIONS with wrong origin', async () => {
+		const response = await SELF.fetch('https://example.com', {
+			method: 'OPTIONS',
+			headers: { Origin: 'http://wrong.com' },
+		});
+		expect(response.status).equals(403);
+	});
+
+	it('responds with 200 on OPTIONS with right origin', async () => {
+		const response = await SELF.fetch('https://example.com', {
+			method: 'OPTIONS',
+			headers: { Origin: env.CORS_ORIGINS, 'Access-Control-Request-Method': 'POST' },
+		});
+		expect(response.status).equals(204);
+	});
+
+	it('responds with 415 on missing content type', async () => {
+		const response = await SELF.fetch('https://example.com', {
+			method: 'POST',
+			headers: { Origin: env.CORS_ORIGINS },
+		});
+		expect(response.status).equals(415);
+	});
+
+	it('relays twitch payload by adding secret', async () => {
+		fetchMock.activate();
+		const response = await SELF.fetch('https://example.com', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: 'client_id=woy7ya6l4610oz5udb3yrv0jt8xq1b'
+			+ '&code=gulfwdmys5lsm6qyz4ximz9q32l10'
+			+ '&grant_type=authorization_code'
+			+ '&redirect_uri=http://localhost:3000'
+		})
+		expect(response.status).equals(200);
+	})
 });
