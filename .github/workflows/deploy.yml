@@ -17,6 +17,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           secrets: TWITCH_SECRETS
+          vars: CORS_ORIGINS
         env:
-            TWITCH_SECRETS: ${{ secrets.TWITCH_SECRETS }}
-            CORS_ORIGINS: ${{ env.CORS_ORIGINS }}
+          TWITCH_SECRETS: ${{ secrets.TWITCH_SECRETS }}
+          CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
